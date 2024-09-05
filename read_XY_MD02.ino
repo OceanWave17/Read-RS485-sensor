@@ -1,59 +1,55 @@
-#define RXD2 26
-#define TXD2 27
+#define MAX485_DE_RE 32
 
-byte ByteArray[250];
-int ByteData[20];
+// half second wait for a reply
+const uint32_t TIMEOUT = 200UL;
+
+// canned message to your RS485 device
+uint8_t msg[] = {0x00, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x0B};
 
 void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(9600);
-  Serial2.begin(9600, SERIAL_8N1, RXD2, TXD2);
+  Serial.begin(115200);
+  Serial1.begin(9600, SERIAL_8N1, 26, 27);
+  pinMode(MAX485_DE_RE, OUTPUT);
+  digitalWrite(MAX485_DE_RE, LOW);
+  delay(1000);
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  delay(1000);
+  uint32_t startTime = 0;
 
-  byte msg[] = {0x01,0x03,0x00,0x00,0x00,0x0A,0xC5,0xCD};
+  Serial.print("TX: ");
+  printHexMessage( msg, sizeof(msg) );
 
-  int i;
-  int len=8;
+  // send the command
+  digitalWrite(MAX485_DE_RE, HIGH);
+  delay( 10 );
+  Serial1.write( msg, sizeof(msg) );
+  Serial1.flush();
+  digitalWrite(MAX485_DE_RE, LOW);
 
-  Serial.println("Sending Data...");
-  for(i=0 ; i < len ; i++){
-    Serial2.write(msg[i]);
-    Serial.print("[");
-    Serial.print(i);
-    Serial.print("]");
-    Serial.print("=");
-    Serial.print(String(msg[i],HEX));
+  Serial.print("RX: ");
+  
+  // read any data received and print it out
+  startTime = millis();
+  while ( millis() - startTime <= TIMEOUT ) {
+    if (Serial1.available()) {
+      printHexByte(Serial1.read());
+    }
   }
-
-  len = 0;
   Serial.println();
-  Serial.println();
+  delay(2000);
+}
 
-  int a = 0;
-
-  while(Serial2.available()){
-    ByteArray[a] = Serial2.read();
-    a++;
+void printHexMessage( uint8_t values[], uint8_t sz ) {
+  for (uint8_t i = 0; i < sz; i++) {
+    printHexByte( values[i] );
   }
-
-  int b = 0;
-  String Register;
-  Serial.println("Receiving Data...");
-  for(b=0;b<a;b++){
-    Serial.print("[");
-    Serial.print(b);
-    Serial.print("]");
-    Serial.print("=");
-
-    Register = String(ByteArray[b],HEX);
-    Serial.print(Register);
-    Serial.print(" ");
-  }
-
   Serial.println();
-  Serial.println();
+}
+
+void printHexByte(byte b)
+{
+  Serial.print((b >> 4) & 0xF, HEX);
+  Serial.print(b & 0xF, HEX);
+  Serial.print(' ');
 }
